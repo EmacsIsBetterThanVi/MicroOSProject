@@ -15,7 +15,19 @@ pBH:	dw 2
 BOOTDISK:	db 0
 BUFFERPOS:	dw 0
 %ifdef AUTOEXTEND
+%ifdef BIGFS
+%ifdef LARGEFILES
+CMD:	"fe@A1" times 11 db 0
+%else
+CMD:	"fe@A" times 12 db 0
+%endif
+%else
+%ifdef LARGEFILES
+CMD:	"feA1" times 12 db 0
+%else
 CMD:	"feA" times 13 db 0
+%endif
+%endif
 %else
 CMD:	times 16 db 0
 %endif
