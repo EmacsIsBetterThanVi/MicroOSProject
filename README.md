@@ -16,5 +16,8 @@ e                   Executes the machine code loaded in the buffer\
 bw*                 Writes the data to the buffer at BUFFERPOS, incrementing BUFFERPOS by one for each character\
 bp                  Prints the BUFFER\
 br                  Resets BUFFERPOS to zero
+# Instalation instuctions
+run ./BSOS.sh build [size]
+then flash the resulting image to a disk, or run ./BSOS.sh run to execute it in qemu
 # Credits
 http://sebastianmihai.com/snowdrop/src for some pieces of code.
