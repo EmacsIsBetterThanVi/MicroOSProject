@@ -14,7 +14,11 @@ BSPT:	dw 18
 pBH:	dw 2
 BOOTDISK:	db 0
 BUFFERPOS:	dw 0
+%ifdef AUTOEXTEND
+CMD:	"feA" times 13 db 0
+%else
 CMD:	times 16 db 0
+%endif
 STACK equ 1000h
 BUFFER equ 1000h
 BSOS:
@@ -31,6 +35,11 @@ BSOS:
 	mov es, ax
 	mov si, VERSION
 	call OUT
+ 	%ifdef EXECFILE
+ 	%ifdef AUTOEXTEND
+  	jmp SHELL
+  	%endif
+   	%endif
 .reset:
 	mov si, BOOTSTR
 	call OUT
@@ -85,8 +94,6 @@ SHELL:
 	je .buffer_b
 	%endif
 	%endif
-	;; 	cmp word [si], 'be'
-	;; 	je .buffer_e
 	mov si, CMDNOTFOUNDSTR
 	call OUT
 	jmp BSOS.reset
@@ -110,6 +117,10 @@ SHELL:
 	cmp byte [cs:CMD+1], 'w'
 	je .write
 	call RDISK
+ 	%ifdef EXECFILE
+  	cmp byte [cs:CMD+1], 'e'
+   	je .exec
+ 	%endif
 	jmp BSOS.reset
 .write:
 	call WDISK
@@ -273,3 +284,6 @@ db 7Fh
 times 15 db 0
 ; Boot sector ending, IT HAS TO BE THIS WAY
 dw 0AA55h
+%ifdef EXTEND
+%include "EXTEND"
+%endif
