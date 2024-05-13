@@ -8,6 +8,8 @@ BUFFERCONTROLS      Adds the bf command, which advances the buffer pointer forwa
 BIGFS               Expands the file system to containe additional sectors, extending the file command proccessor to take two letters for the name insted of one(Untested)\
 LARGEFILES          Adds a sector count to the end of the file command, which is how many 512 byte blocks the system will read and write(Untested)\
 NOBUFFER            Disables buffer commands, allowing more space for other extensions\
+EXECFILE            Adds the fe? command, which loads and executes a file\
+AUTOEXTEND          Requires EXECFILE, automatical loads the file in A and executes it.
 # Commands
 A ? represents a passed byte for data, a * represents any number of pased bytes for data.\
 fw?                 Writes the buffer to a sector(? represents a character which's ascii code is 64 greater than the block)\
