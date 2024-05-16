@@ -5,6 +5,7 @@
 	org 7C00h
 jmp BSOS ; skip our data segement
 times $$ + 3 - $ nop		; padding for security
+BOOTDISK:	db 0
 BOOTSTR: db 0ah, 0dh, "BSOS>", 0
 VERSION:	db VERSIONNUM, 0
 CMDNOTFOUNDSTR:	 db "?", 0
@@ -12,7 +13,6 @@ CMDNOTFOUNDSTR:	 db "?", 0
 SECTORCOUNT:	db 0
 BSPT:	dw 18
 pBH:	dw 2
-BOOTDISK:	db 0
 BUFFERPOS:	dw 0
 %ifdef AUTOEXTEND
 %ifdef BIGFS
@@ -177,6 +177,7 @@ SHELL:
 	jmp BSOS.reset
 %endif
 .exec:
+	mov ah, BOOTDISK
 	call BUFFER:0000
 	jmp BSOS.reset
 	;; GET LOCATION OF FILE PASSED IN {AH AL} to {di} 
