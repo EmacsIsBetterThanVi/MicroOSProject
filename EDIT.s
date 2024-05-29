@@ -21,6 +21,15 @@ EDIT:
 	call RDISK
 	pop bx
 .loop:
+	pusha
+	mov ah, 06
+	mov al, 00
+	mov bh, 07
+	mov cx, 0000
+	mov dh, 18h
+	mov dl, 4Fh
+	int 10h
+	popa
 	mov si, 512
 	call OUT
 	mov ah, 0h
@@ -58,7 +67,7 @@ EDIT:
 	jmp .loop
 	pop bx
 .quit:
-	ret
+	jmp 0000:7c42h
 OUT:
         pusha
         mov ah, 0Eh
