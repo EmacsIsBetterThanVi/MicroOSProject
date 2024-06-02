@@ -22,13 +22,7 @@ EDIT:
 	pop bx
 .loop:
 	pusha
-	mov ah, 06
-	mov al, 00
-	mov bh, 07
-	mov cx, 0000
-	mov dh, 18h
-	mov dl, 4Fh
-	int 10h
+	call CLEAR
 	popa
 	mov si, 512
 	call OUT
@@ -79,9 +73,21 @@ OUT:
         int 10h
         je .end
         jmp .loop
-.end:
-        popa
-        ret
+CLEAR:
+	mov ah, 02h
+ 	mov dx, 0000h
+  	int 10h
+   	mov cx, 1920
+.loop
+   	mov al, 20h
+    	mov ah, 0Eh
+     	int 10h
+      	dec cx
+        jnz .loop
+	mov ah, 02h
+ 	mov dx, 0000h
+  	int 10h
+	ret
 WDISK:
 	pusha
         call GCHS
