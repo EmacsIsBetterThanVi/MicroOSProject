@@ -61,7 +61,7 @@ EDIT:
 	jmp .loop
 	pop bx
 .quit:
-	jmp 0000:7c42h
+	db 0CBh
 OUT:
         pusha
         mov ah, 0Eh
