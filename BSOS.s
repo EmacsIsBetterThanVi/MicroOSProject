@@ -42,6 +42,12 @@ BSOS:
 	mov ax, STACK 		; move the stack
 	mov ss, ax		; unsafe operation, so we prevent interupts
 	xor sp, sp		; reset the stack pointer
+	mov word [84h], 0h
+	mov word [86h], RDISK
+	mov word [88h], 0h
+	mov word [8Ah], WDISK
+	mov word [8Ch], 0h
+	mov word [8Eh], OUT
 	sti
 	mov ax, BUFFER
 	mov es, ax
@@ -107,7 +113,7 @@ SHELL:
 	%endif
 	%endif
 	mov si, CMDNOTFOUNDSTR
-	call OUT
+	int 23h
 	jmp BSOS.reset
 .file:
 	add si, 2h
@@ -128,14 +134,14 @@ SHELL:
 	xor bx, bx
 	cmp byte [cs:CMD+1], 'w'
 	je .write
-	call RDISK
+	int 21h
  	%ifdef EXECFILE
   	cmp byte [cs:CMD+1], 'e'
    	je .exec
  	%endif
 	jmp BSOS.reset
 .write:
-	call WDISK
+	int 22h
 	jmp BSOS.reset
 %ifndef NOBUFFER
 .buffer_p:
@@ -143,7 +149,7 @@ SHELL:
 	push ds
 	mov ds, ax
 	xor si, si
-	call OUT
+	int 23h
 	pop ds
 	jmp BSOS.reset
 %ifdef BUFFERCONTROLS
@@ -207,7 +213,7 @@ WDISK:
 	clc
 .end:
 	popa
-	ret
+	iret
 %else
 	pusha
 	call GCHS
@@ -216,7 +222,7 @@ WDISK:
 	xor bx, bx
 	int 13h
 	popa
-	ret
+	iret
 %endif
 	;; READ {SECTORCOUNT} SECTORS STARTING AT {DI} INTO {ES:BX}
 RDISK:
@@ -265,7 +271,7 @@ OUT:
 	jmp .loop
 .end:
 	popa
-	ret
+	iret
 %if %eval(440 - ($ - $$)) > 0
 %warning %eval(440 - ($ - $$)) bytes remaining
 %elif %eval(440 - ($ - $$)) < 0

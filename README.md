@@ -1,7 +1,7 @@
 # BSOS
 Boot Sector OS(BSOS) is a open source operating system writen in NASM designed to fit in the boot sector.
-BSOS is writen for x86-16, and is 349 bytes total, however there are some extensions which can be enabled to increase usabilty by passing -dNAME to the disk image builder.
-At BSOS's minimum settings it uses 276 bytes, however it requieres additional files for buffer interactions.
+BSOS is writen for x86-16, and is 381 bytes total, however there are some extensions which can be enabled to increase usabilty by passing -dNAME to the disk image builder.
+At BSOS's minimum settings it uses 309 bytes, however it requieres additional files for buffer interactions.
 # Extensions
 Extensions are activated by passing -dNAME where NAME is one of the following.\
 BUFFERCONTROLS      Adds the bf command, which advances the buffer pointer forward by 16 bytes, and bb, which moves the buffe pointer back by 16 bytes\
