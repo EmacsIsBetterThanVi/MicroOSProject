@@ -42,7 +42,7 @@ ConfigDisplay:
 	mov ax, [410h]
 	and ax, 30h
 	cmp ax, 20h
-	jne ConfigKeyboard
+	jne LoadRootDirectory
 	mov word [VGA_BASE], 0B800h
 LoadRootDirectory:
 	push word [DIR]
@@ -102,7 +102,7 @@ LoadKernelFile:			; The kernel is loaded right after the MBR entries
 	;; 						DELETE events
 	;; 	7 - KeyBoaRD: Raised by all other CTRL or ALT key combos
 	;; 	SHutDowN: Raised by CTRL+ALT+SHIFT+BACKSPACE Shuts down the computer
-	;; 	10+N - CONTinue: Raised by CTRL+{number key N}, set by CTRL+Z
+	;; 	CONTinue: Raised by CTRL+{number key N}, set by CTRL+Z
 	;; 
 ;; Helper functions/interupts
 	;;  femto ignores the EXTRA DATA section, the EXECUTABLE permision, and
@@ -341,6 +341,7 @@ CLI:
 	int 2Eh
 	mov bx, Prompt
 	int 27h
+	mov word [CMDp], 0
 .prompt:
 	mov bl, 1
 	mov cl, 3
@@ -360,6 +361,8 @@ CLI:
 .exec:
 	mov bl, 10
 	int 27h
+	cmp byte [CMD], 0
+	je CLI
 	cmp byte [CMD], 'e'
 	je .EXECUTE
 	cmp byte [CMD], 'd'
@@ -414,7 +417,7 @@ CLI:
 	inc di
 	loop .DUMP_LOOP
 	jmp CLI
-	;; IN: [bx]; OUT: ax
+	;; IN:[bx]; OUT: ax
 .DECIMAL_TO_WORD:
 	mov ax, 0
 	mov cx, 5
@@ -597,6 +600,18 @@ KeyPressInt:
 	je .SIGEXIT
 	cmp al, 'x'
 	je .SIGTERM
+	cmp al, 'z'
+	je .SIGPAUS
+	cmp al, 'C'
+	je .SIGCOPY
+	cmp al, 'V'
+	je .SIGPAST
+	cmp al, ' '
+	je .SIGSLCT
+	cmp al, 8
+	je .SIGDLTE
+	cmp al, 'X'
+	je .SIGCPDL
 	jmp .SIGKBRD
 .ctrl_alt:
 	test word [cs:SysFlags], 4
@@ -609,10 +624,33 @@ KeyPressInt:
 	mov bl, 1
 	mov cl, 5
 	int 2Eh
-	mov byte [cs:SIGNAL], 7
-	mov byte [cs:SIGNAL_ARG1], al
-	mov al, [cs:SysFlags]
-	mov byte [cs:SIGNAL_ARG2], al
+	mov cl, 7
+	mov byte [cs:SIGNAL_ARG], al
+	call INVOKE_SIG
+	jmp .end
+.SIGPAUS:
+	mov cl, 1
+	call INVOKE_SIG
+	jmp .end
+.SIGCOPY:
+	mov cl, 3
+	call INVOKE_SIG
+	jmp .end
+.SIGSLCT:
+	mov cl, 2
+	call INVOKE_SIG
+	jmp .end
+.SIGPAST:
+	mov cl, 4
+	call INVOKE_SIG
+	jmp .end
+.SIGDLTE:
+	mov cl, 5
+	call INVOKE_SIG
+	jmp .end
+.SIGCPDL:
+	mov cl, 6
+	call INVOKE_SIG
 	jmp .end
 .SIGTERM:
 	mov al,20h
@@ -635,6 +673,9 @@ KeyPressInt:
 	jmp .kernLock
 RegisterSignal:
 	pusha
+	cmp al, 7
+	jg .escape
+	mov cl, al
 	mov ah, 0
 	mov bx, SIGNALS
 	mov di, SIGNAL_DEFAULTS
@@ -651,6 +692,10 @@ RegisterSignal:
 	inc bx
 	inc bx
 	mov [bx], ax
+	mov al, 1
+	shl al, cl
+	not al
+	and [cs:SETSIGNALS], al
 	popa
 	iret
 .Register:
@@ -659,6 +704,10 @@ RegisterSignal:
 	inc bx
 	inc bx
 	mov [bx], dx
+	mov al, 1
+	shl al, cl
+	or [cs:SETSIGNALS], al
+.escape:
 	popa
 	iret
 ReadInput:
@@ -704,22 +753,63 @@ putchar:
 	mul byte [cs:COLS]
 	mov di, ax
 	jmp print.end
+SIG_PAUSE:
 SIG_EXIT:
+	cli
 	mov ax, 1000h
 	mov ss, ax
 	xor sp, sp
 	push cs
 	pop ds
-	jmp CLI
+	mov byte [SETSIGNALS], 3
+	sti
+	jmp 0000:CLI
 ReadInt:
 	call READSECTORS
 	iret
-SETSIGNALS: db 0
-SIGNAL:	db 0
-SIGNAL_ARG1: db 0
-SIGNAL_ARG2: db 0
+INVOKE_SIG:			; Invokes signal cl
+	pusha
+	mov al, 1
+	shl al, cl
+	test byte [cs:SETSIGNALS], al
+	jz .exit
+	mov bx, SIGNALS
+	shl cl, 2
+	mov ch, 0
+	add bx, cx
+	pushf
+	push cs
+	push word .exit
+	push word [cs:bx]
+	push word [cs:bx]
+	mov al, 20h
+	out 20h, al
+	retf
+.exit:
+	popa
+	ret
+SETSIGNALS: db 0b00000011
+SIGNAL_ARG: db 0
 SIGNAL_DEFAULTS:
 .EXIT:	dw SIG_EXIT
+.PAUS:	dw SIG_PAUSE
+.SLCT:  dw 0
+.COPY: 	dw 0
+.PAST:  dw 0
 SIGNALS:
 .EXITcs: dw 0
 .EXITip: dw 0
+.PAUScs: dw 0
+.PAUSip: dw 0
+.SLCTcs: dw 0
+.SLCTip: dw 0	
+.COPYcs: dw 0
+.COPYip: dw 0
+.PASTcs: dw 0
+.PASTip: dw 0
+.DLTEcs: dw 0
+.DLTEip: dw 0
+.CPDLcs: dw 0
+.CPDLip: dw 0
+.KBRDcs: dw 0
+.KBRDip: dw 0
