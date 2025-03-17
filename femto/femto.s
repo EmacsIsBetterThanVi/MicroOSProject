@@ -4,16 +4,17 @@
 	times $$ + 3 - $ nop
 IWHEAD:	db 0
 IRHEAD:	db 0
+DLEN:	dw 512
+CDSTART:dw 0
 INT9_SEG:	dw 0
 INT9_OFF:	dw 0
-INPUT_BUFFER:	times 32 db 0
 	;; DISK CONFIG
 DISK:	db 0
 BSPT:	dw 18
 pBH:	dw 2
 DIR:	dw 50h
 KernelFile:	db "femto", 0
-SysFlags:	dw 32	; 00000000-00,SIG,INVERT,Printchar,Shift,Ctrl,Alt
+SysFlags:	dw 32	; 00000000-NonBlocking,FileNotFound,SIG,INVERT,Printchar,Shift,Ctrl,Alt
 	;; VGA CONFIG
 VGA_BASE:	dw 0B000h
 VAddr:		dw 0
@@ -55,42 +56,45 @@ LoadRootDirectory:
 	mov bx, BootLRD
 	call print
 LoadKernelFile:			; The kernel is loaded right after the MBR entries
-	;; 	mov si, KernelFile
-	;; 	call LOCATE
+	mov si, KernelFile
+	call LOCATE
 	mov ax, 7E0h
 	mov es, ax
 	xor bx, bx
-	mov di, 2
-	mov si, 3
+	;; 	mov di, 2
+	;; 	mov si, 4
 	call READSECTORS
 	mov bx, BootLKF
 	call print
 	jmp KernelPart2
 	;; Interupts:
-	;; 	0x21: Read File		; Takes file start in di, length in si, and
+	;; x	0x21: Read File		; Takes file start in di, length in si, and
 	;; 				a buffer in es:bx
 	;; 	0x22: Write File	; Same as 0x21
 	;; 	0x23: Create File	; Takes a name in ds:bx, permisions in ax,
 	;; 				and a buffer in es:si
 	;; 	0x24: Delete File	; Takes a file name in ds:bx
-	;; 	0x25: Execute File	; Takes a file name in ds:bx
+	;; 	0x25: Execute File	; Takes a file name in ds:si, and the
+	;; 					current process in ax
 	;; 	0x26: Open File 	; Takes a file name in ds:si, and sets di to
 	;; 		the file start block, and si to the length of the file
-	;; 	0x27: Output ds:bx to console
+	;; x	0x27: Output ds:bx to console
 	;; 	0x28: Allocate ax bytes of RAM, pointer returned in es:bx
 	;; 	0x29: Free pointer es:bx
 	;; 	0x2A: Set directory to es:bx
-	;; 	0x2B: Return to root directory
+	;; 	0x2B: Drop last directory
 	;; 	0x2C: Switch to drive al
-	;; 	0x2D: Change the color of the console to al
-	;;	0x2E: Set sys flag cl to bl=1: high, bl=0: low, else: togle
+	;; x	0x2D: Change the color of the console to al
+	;; x	0x2E: Set sys flag cl to bl=1: high, bl=0: low, else: togle
 	;; 	0x2F: Register Signal al, clear with SysFlag 5 set. sets to es:dx
-	;; 	0x30: Check signal
+	;; 	0x30: Launch a new process at address bx(Pauses the current process
+	;; 		and saves it to be resumed).
 	;; 	0x31: Raise Signal al(bl, bh)
-	;; 	0x32: Return to Kernel
+	;; x	0x32: Return to Kernel
+	;; x	0x33: Read Input
 	;; Signals:
-	;; 	0 - EXIT: Raised by CTRL+C   Quits program
-	;; 	TERMinate: Raised by CTRL+X  Force quits program
+	;; x	0 - EXIT: Raised by CTRL+C   Quits program
+	;; x	TERMinate: Raised by CTRL+X  Force quits program
 	;; 	1 - PAUSe: Raised by CTRL+Z  Sets a program resume vector and pauses
 	;; 	2 - SeLeCT: Raised by CTRL+SPACE Creates a mark to read from console
 	;; 	3 - COPY: Raised by CTRL+SHIFT+C Copies all selected data to the
@@ -100,55 +104,73 @@ LoadKernelFile:			; The kernel is loaded right after the MBR entries
 	;; 	5 - DeLeTE: Raised by CTRL+BACKSPACE Deletes the selected text
 	;; 	6 - CoPy & DeLete: Raised by CTRL+SΗIFT+X Combines the COPY and
 	;; 						DELETE events
-	;; 	7 - KeyBoaRD: Raised by all other CTRL or ALT key combos
-	;; 	SHutDowN: Raised by CTRL+ALT+SHIFT+BACKSPACE Shuts down the computer
+	;; x	7 - KeyBoaRD: Raised by all other CTRL or ALT key combos
+	;; x	SHutDowN: Raised by CTRL+ALT+SHIFT+BACKSPACE Shuts down the computer
 	;; 	CONTinue: Raised by CTRL+{number key N}, set by CTRL+Z
 	;; 
 ;; Helper functions/interupts
 	;;  femto ignores the EXTRA DATA section, the EXECUTABLE permision, and
 	;;  the low four bits of the permisions byte
 
-	;; TODO: Fix Locate
 LOCATE:
     push ax
     push bx
     push cx
     push dx
     push es
-    mov ax, [DIR]
-    mov es, ax
-    mov bx, 0h
+    push word [DIR]
+	pop es
+	push si
+	xor bx, bx
+	xor di, di
     jmp .loop	
 .next:
-    mov si, 0
-    add bx, 32
-    mov di, bx
+	pop si
+	push si
+	add bx, 32
+	mov di, bx
+	cmp bx, word [cs:DLEN]
+	je .fail
 .loop:
     mov al, [ds:si]
     cmp al, 0
-    je .end
+    je .pend
     cmp al, [es:di]
     jne .next
     inc si
     inc di
-    jmp .loop
+	jmp .loop
+.pend:
+	cmp byte [es:di], 0
+	jne .next
 .end:
+    pop si
     mov di, bx
     add di, 25
     mov al, [es:di]
     mov si, ax
     and si, 0FFh	
     inc di
-    mov ah, byte [es:di]
-    inc di
     mov al, byte [es:di]
-    mov di, ax
+    inc di
+    mov ah, byte [es:di]
+	mov di, ax
+	mov cl, 6
+	mov bl, 0
+	int 2Eh
+.exit:
     pop es
     pop dx
     pop cx
     pop bx
     pop ax	
     ret
+.fail:
+	pop si
+	mov cl, 6
+	mov bl, 1
+	int 2Eh
+	je .exit
 	;; Read {sl} sectors starting at {di} into {es:bx}
 READSECTORS:
 	pusha
@@ -205,7 +227,7 @@ print:
 	je .end
 	mov byte [es:di], al
 	inc di
-	mov byte [es:di], dl
+	mov byte [es:di] , dl
 	inc di
 	inc bx
 	jmp .loop
@@ -269,11 +291,14 @@ db 7Fh
 times 15 db 0
 				; Boot sector ending, IT HAS TO BE THIS WAY
 dw 0AA55h
-CMD:	times 256 db 0
+CMD:	db "welcome"
+	times 249 db 0
+DSTACK:	 times 64 db 0
 CMDp: 	dw 0
-Version:	db "Femto 0.2", 10, 0
+Version:	db "Femto 0.4", 10, 0
 Prompt:	db 13, "FEMTO>", 0
 ERROR:	db "Error: Bad command", 10, 0
+INPUT_BUFFER:	times 32 db 0
 KernelPart2:
 	mov bx, Version
 	call print
@@ -315,6 +340,9 @@ SetupInterupts:
 	mov al, 32h
 	mov dx, SIG_EXIT
 	call CreateInterupt
+	inc al
+	mov dx, ReadInputInt
+	call CreateInterupt
 	mov ax, [es:24h]
 	mov word [cs:INT9_OFF], ax
 	mov ax, [es:26h]
@@ -323,12 +351,16 @@ SetupInterupts:
 	mov dx, KeyPressInt
 	call CreateInterupt
 	sti
+	mov bx, CMD
 RegisterSignals:
+	jmp CLI.ExecFile
 CLI:
 	mov bl, 1
 	mov cl, 4
 	int 2Eh
 	mov al, 0
+	int 2Fh
+	mov al, 1
 	int 2Fh
 	mov cx, 256
 	mov bx, CMD
@@ -367,6 +399,29 @@ CLI:
 	je .EXECUTE
 	cmp byte [CMD], 'd'
 	je .DUMP
+	mov bx, CMD
+.ExecFile:
+	inc bx
+	cmp byte [bx], ' '
+	je .ExecFile2
+	cmp byte [bx], 0
+	jne .ExecFile
+.ExecFile2:
+	mov byte [bx], 0
+	inc bx
+	push bx
+	mov si, CMD
+	call LOCATE
+	test word [SysFlags], 64
+	jnz .error
+	mov ax, 3000h
+	mov es, ax
+	xor bx, bx
+	int 21h
+	mov ds, ax
+	pop bx
+	jmp .RUNPRG
+.error:	
 	mov bl, 0
 	mov cl, 3
 	int 2Eh
@@ -398,6 +453,7 @@ CLI:
 	int 21h
 	mov ds, ax
 	mov bx, CMD+12
+.RUNPRG:
 	mov ax, 1
 	mov cx, 0
 	mov es, cx
@@ -469,6 +525,14 @@ SysFlagInt:
 	or word [cs:SysFlags], ax
 	pop ax
 	iret
+ReadInputInt:
+	test word [cs:SysFlags], 128
+	jnz .NoBlock
+	call ReadInput
+	iret
+.NoBlock:
+	call ReadInputNoBlock
+	iret
 ColorChangeInt:	
 	mov byte [cs:Color], al
 	iret
@@ -480,6 +544,22 @@ PrintInt:
 	iret
 .char:
 	call putchar
+	iret
+ExecuteFileInt:
+	pusha
+	call LOCATE
+	test word [SysFlags], 64
+	jnz .error
+	mov ax, 3000h
+	mov es, ax
+	xor bx, bx
+	int 21h
+	mov ds, ax
+	pop bx
+	jmp .RUNPRG
+.error:
+	popa
+	mov ax, 0
 	iret
 	;; Keyboard data:
 	;; SCAN: db 0x1c, 0x32, 0x21, 0x23, 0x24, 0x2B, 0x34, 0x33, 0x43, 0x3B, 0x42, 0x4B, 0x3A, 0x31, 0x44, 0x4D, 0x15, 0x2D, 0x1B, 0x2C, 0x3C, 0x2A, 0x1D, 0x22, 0x35, 0x1A, 0x16, 0x1E, 0x26, 0x25, 0x2E, 0x36, 0x3D, 0x3E, 0x46, 0x45, 0x4E, 0x55, 0x4A, 0x49, 0x41, 0x4C, 0x52, 0x54, 0x5B, 0x5D, 0x0E, 0x29, 0x5A, 0
@@ -675,7 +755,7 @@ RegisterSignal:
 	pusha
 	cmp al, 7
 	jg .escape
-	mov cl, al
+	mov dl, al
 	mov ah, 0
 	mov bx, SIGNALS
 	mov di, SIGNAL_DEFAULTS
@@ -687,8 +767,8 @@ RegisterSignal:
 	jz .Register
 .Clear:
 	mov ax, [di]
-	mov cx, 0
-	mov [bx], cx 
+	mov dx, 0
+	mov [bx], dx 
 	inc bx
 	inc bx
 	mov [bx], ax
@@ -699,7 +779,7 @@ RegisterSignal:
 	popa
 	iret
 .Register:
-	mov cx, es
+	mov dx, es
 	mov [bx], es
 	inc bx
 	inc bx
@@ -710,6 +790,16 @@ RegisterSignal:
 .escape:
 	popa
 	iret
+ReadInputNoBlock:
+	push bx
+	mov bx, INPUT_BUFFER
+	add bl, [cs:IRHEAD]
+	mov al, cs:bx
+	mov byte [cs:bx], 0
+	cmp al, 0
+	jne ReadInput.inc
+	pop bx
+	ret
 ReadInput:
 	push bx
 	mov bx, INPUT_BUFFER
@@ -719,6 +809,7 @@ ReadInput:
 	cmp al, 0
 	je .block
 	mov byte [cs:bx], 0
+.inc:
 	inc byte [cs:IRHEAD]
 	cmp byte [cs:IRHEAD], 32
 	je .reset
@@ -753,6 +844,7 @@ putchar:
 	mul byte [cs:COLS]
 	mov di, ax
 	jmp print.end
+
 SIG_PAUSE:
 SIG_EXIT:
 	cli
@@ -796,6 +888,9 @@ SIGNAL_DEFAULTS:
 .SLCT:  dw 0
 .COPY: 	dw 0
 .PAST:  dw 0
+.DLTE: 	dw 0
+.CPDL:  dw 0
+.KBRD:  dw 0
 SIGNALS:
 .EXITcs: dw 0
 .EXITip: dw 0
