@@ -70,7 +70,7 @@ LoadKernelFile:			; The kernel is loaded right after the MBR entries
 	;; Interupts:
 	;; x	0x21: Read File		; Takes file start in di, length in si, and
 	;; 				a buffer in es:bx
-	;; 	0x22: Write File	; Same as 0x21
+	;; x	0x22: Write File	; Same as 0x21
 	;; 	0x23: Create File	; Takes a name in ds:bx, permisions in ax,
 	;; 				and a buffer in es:si
 	;; 	0x24: Delete File	; Takes a file name in ds:bx
@@ -295,7 +295,7 @@ CMD:	db "welcome"
 	times 249 db 0
 DSTACK:	 times 64 db 0
 CMDp: 	dw 0
-Version:	db "Femto 0.4", 10, 0
+Version:	db "Femto 0.5", 10, 0
 Prompt:	db 13, "FEMTO>", 0
 ERROR:	db "Error: Bad command", 10, 0
 INPUT_BUFFER:	times 32 db 0
@@ -325,6 +325,9 @@ SetupInterupts:
 	mov al, 21h
 	mov dx, ReadInt
 	call CreateInterupt
+	inc al
+	mov dx, WriteInt
+	call CreateInterupt
 	mov al, 27h
 	mov dx, PrintInt
 	call CreateInterupt
@@ -332,9 +335,9 @@ SetupInterupts:
 	mov al, 2Dh
 	call CreateInterupt
 	mov dx, SysFlagInt
-	mov al, 2Eh
+	inc al
 	call CreateInterupt
-	mov al, 2Fh
+	inc al
 	mov dx, RegisterSignal
 	call CreateInterupt
 	mov al, 32h
@@ -491,6 +494,7 @@ CLI:
 	;; Sets interupt al to address es:dx
 CreateInterupt:
 	cli
+	pusha
 	push es
 	push word 0h
 	pop es
@@ -503,6 +507,7 @@ CreateInterupt:
 	add bx, 2
 	mov word [es:bx], cx
 	pop es
+	popa
 	sti
 	ret
 SysFlagInt:
@@ -556,7 +561,7 @@ ExecuteFileInt:
 	int 21h
 	mov ds, ax
 	pop bx
-	jmp .RUNPRG
+	jmp CLI.RUNPRG
 .error:
 	popa
 	mov ax, 0
@@ -859,6 +864,9 @@ SIG_EXIT:
 ReadInt:
 	call READSECTORS
 	iret
+WriteInt:
+	call WRITESECTORS
+	iret
 INVOKE_SIG:			; Invokes signal cl
 	pusha
 	mov al, 1
@@ -878,6 +886,27 @@ INVOKE_SIG:			; Invokes signal cl
 	out 20h, al
 	retf
 .exit:
+	popa
+	ret
+WRITESECTORS:
+	pusha
+.start:
+	pusha
+	push es
+	mov ax, di
+	call LBA_to_CHS
+	mov ah, 3
+	mov al, 1
+	int 13h
+	pop es
+	popa
+	jc .end
+	add bx, 512
+	inc di
+	dec si
+	jnz .start
+	clc
+.end:
 	popa
 	ret
 SETSIGNALS: db 0b00000011

@@ -1,6 +1,6 @@
 ; ROOT DIRECTORY ENTRIES
-db "root/"
-times $eval(25 - %strlen("/")) db 0
+db "/"
+times %eval(25 - %strlen("/")) db 0
 db 00h
 dw 0002h
 db 00100000b 	; A directory
@@ -27,6 +27,12 @@ db "help"
 times %eval(25 - %strlen("help")) db 0
 db 3	
 dw 12
+db 0	
+times 3 db 0
+db "WriteTest"
+times %eval(25 - %strlen("WriteTest")) db 0
+db 2
+dw 15
 db 0
 times 3 db 0
 times 512 - ($ - $$) db 0 ; ends the file, ensures it is exactly one sector
