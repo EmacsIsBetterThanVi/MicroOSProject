@@ -21,7 +21,7 @@ VAddr:		dw 0
 Color:		db 03h
 COLS:		db 160
 	;; BOOT STRINGS
-BootLRD:	db "Loaded Root Directory", 10,0
+BootLRD:	db "Loaded Root", 10,0
 BootLKF:	db "Loaded Kernel file", 10,0
 BOOT:
 	cld
@@ -171,7 +171,7 @@ LOCATE:
 	mov bl, 1
 	int 2Eh
 	je .exit
-	;; Read {sl} sectors starting at {di} into {es:bx}
+	;; Read {si} sectors starting at {di} into {es:bx}
 READSECTORS:
 	pusha
 	;; 	mov byte [cs:SRC], al
@@ -197,17 +197,17 @@ READSECTORS:
 LBA_to_CHS:
     push ax
     xor dx, dx
-    div word [BSPT]
+    div word [cs:BSPT]
     inc dl
     mov cl, dl
     pop ax
     xor dx, dx
-    div word [BSPT]
+    div word [cs:BSPT]
     xor dx, dx
-    div word [pBH]
+    div word [cs:pBH]
     mov dh, dl
     mov ch, al
-    mov dl, byte [DISK]
+    mov dl, byte [cs:DISK]
     ret
 	;; Prints {ds:bx} to the console in {color}
 print:
@@ -291,6 +291,7 @@ db 7Fh
 times 15 db 0
 				; Boot sector ending, IT HAS TO BE THIS WAY
 dw 0AA55h
+section .part2	
 CMD:	db "welcome"
 	times 249 db 0
 DSTACK:	 times 64 db 0
@@ -867,6 +868,16 @@ ReadInt:
 WriteInt:
 	call WRITESECTORS
 	iret
+OpenInt:
+	push cx
+	push bx
+	mov cl, 6
+	mov bl, 0
+	int 2Eh
+	pop bx
+	pop cx
+	call LOCATE
+	iret
 INVOKE_SIG:			; Invokes signal cl
 	pusha
 	mov al, 1
@@ -893,6 +904,7 @@ WRITESECTORS:
 	cmp si, 0
 	je .end
 .start:
+	call WRITESECTOR
 	add bx, 512
 	inc di
 	dec si
@@ -948,3 +960,4 @@ SIGNALS:
 .CPDLip: dw 0
 .KBRDcs: dw 0
 .KBRDip: dw 0
+%warning %eval($ - $$) Bytes Long
