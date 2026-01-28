@@ -4,7 +4,6 @@ nasm -f bin root.s -o root.bin
 nasm -f bin Hello.s -o Hello.bin
 nasm -f bin Clear.s -o Clear.bin
 nasm -f bin help.s -o help.bin
-nasm -f bin chain.s -o chain.bin
 dd bs=512 if=femto.bin count=1 of=femto.img conv=noerror,sync
 dd bs=512 if=root.bin of=femto.img oseek=1 conv=noerror,sync
 dd bs=512 if=femto.bin of=femto.img oseek=5 iseek=1 conv=noerror,sync

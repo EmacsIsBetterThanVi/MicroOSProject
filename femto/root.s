@@ -32,6 +32,6 @@ times 3 db 0
 %warning %eval(($ - $$)/32)/16 files used
 times 1536 - ($ - $$) db 0 ; ends the file, ensures it is exactly three sectors
 db 0xFF			   ; The free table is fairly simple, a one in a location means that sector is filled, a zero means it is empty
-db 0xFF			   ; The bits are aranged with the lowest bit representing the lowest byte
+db 0xFF			   ; The bits are aranged with the lowest bit representing the lowest sector
 db 0b00000111	
 times 2048 - ($ - $$) db 0 ; ends the free table and ensures it is exactly one sector

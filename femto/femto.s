@@ -76,16 +76,16 @@ LoadKernelFile:			; The kernel is loaded right after the MBR entries
 	;; 	0x24: Delete File	; Takes a file name in ds:bx
 	;; 	0x25: Execute File	; Takes a file name in ds:si, and the
 	;; 					current process in ax
-	;; 	0x26: Open File 	; Takes a file name in ds:si, and sets di to
+	;; x	0x26: Open File 	; Takes a file name in ds:si, and sets di to
 	;; 		the file start block, and si to the length of the file
 	;; x	0x27: Output ds:bx to console
 	;; 	0x28: Allocate ax bytes of RAM, pointer returned in es:bx
 	;; 	0x29: Free pointer es:bx
 	;; 	0x2A: Set directory to es:bx
-	;; 	0x2B: Drop last directory
-	;; 	0x2C: Switch to drive al
+	;; 	0x2B: Clear the directory
+	;; x	0x2C: Switch to drive al
 	;; x	0x2D: Change the color of the console to al
-	;; x	0x2E: Set sys flag cl to bl=1: high, bl=0: low, else: togle
+	;; x	0x2E: Set sys flag cl to bl=1: high, bl=0: low, else: toggle
 	;; 	0x2F: Register Signal al, clear with SysFlag 5 set. sets to es:dx
 	;; 	0x30: Launch a new process at address bx(Pauses the current process
 	;; 		and saves it to be resumed).
@@ -260,6 +260,9 @@ print:
 	pop es
 	popa
 	ret
+DriveChangeInt:	
+	mov byte [DISK], al
+	iret
 %if %eval(440 - ($ - $$)) > 0
 %warning %eval(440 - ($ - $$)) bytes remaining
 %elif %eval(440 - ($ - $$)) < 0
@@ -329,11 +332,17 @@ SetupInterupts:
 	inc al
 	mov dx, WriteInt
 	call CreateInterupt
-	mov al, 27h
+	mov al, 26h
+	mov dx, OpenInt
+	call CreateInterupt
+	inc al
 	mov dx, PrintInt
 	call CreateInterupt
+	mov al, 2Ch
+	mov dx, DriveChangeInt
+	call CreateInterupt
+	inc al
 	mov dx, ColorChangeInt
-	mov al, 2Dh
 	call CreateInterupt
 	mov dx, SysFlagInt
 	inc al
